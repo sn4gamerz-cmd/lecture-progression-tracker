@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0e11">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<title>Lecture Progression</title>
+<style>
+:root{
+  --bg:#0d0e11; --card:#15171c; --card2:#1b1e24; --text:#f5f5f5;
+  --muted:#9297a3; --line:#292d35; --accent:#c9b8a4; --done:#b8a58f;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+  background:linear-gradient(145deg,#0b0c0f,#141519 55%,#0b0c0f);
+  color:var(--text); min-height:100vh;
+}
+.wrap{max-width:850px;margin:auto;padding:28px 16px 60px}
+header{margin-bottom:26px}
+h1{font-size:30px;margin:0 0 7px;letter-spacing:-1px}
+.sub{color:var(--muted);font-size:14px}
+.subject{
+  background:rgba(21,23,28,.92); border:1px solid var(--line);
+  border-radius:20px; margin:15px 0; overflow:hidden;
+  box-shadow:0 12px 35px rgba(0,0,0,.18);
+}
+.subjectHead{padding:18px 19px 15px;cursor:pointer}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.name{font-size:19px;font-weight:750}
+.percent{font-size:13px;color:var(--accent);font-weight:700}
+.bar{height:6px;background:#282b31;border-radius:99px;margin-top:14px;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#8f8376,#e2d5c6);border-radius:99px;transition:width .35s}
+.chev{color:#777d88;transition:.25s;font-size:18px}
+.subject.open .chev{transform:rotate(180deg)}
+.chapters{display:none;border-top:1px solid var(--line)}
+.subject.open .chapters{display:block}
+.chapter{border-bottom:1px solid var(--line)}
+.chapter:last-child{border-bottom:0}
+.chapterHead{
+  padding:14px 19px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;background:#17191e
+}
+.chapterTitle{font-size:14px;font-weight:650}
+.chapterCount{font-size:12px;color:var(--muted)}
+.lectures{display:none;padding:5px 12px 12px}
+.chapter.open .lectures{display:block}
+.lecture{
+  display:flex;align-items:center;gap:12px;padding:11px 8px;border-radius:11px;
+  transition:.2s;
+}
+.lecture:hover{background:#20232a}
+.check{
+  width:21px;height:21px;border:1px solid #555b65;border-radius:7px;
+  display:grid;place-items:center;cursor:pointer;flex:none;transition:.2s;
+}
+.lecture.done .check{background:var(--done);border-color:var(--done);color:#141414}
+.check::after{content:"✓";font-size:13px;opacity:0}
+.lecture.done .check::after{opacity:1}
+.title{font-size:13px;color:#d7d9de}
+.lecture.done .title{color:#777c86;text-decoration:line-through}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+.controls{
+  display:flex;gap:8px;margin:0 0 18px;flex-wrap:wrap
+}
+button{
+  background:#1a1c21;color:#dfe1e5;border:1px solid var(--line);border-radius:10px;
+  padding:9px 12px;cursor:pointer;font-weight:600
+}
+button:hover{background:#23262d}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Lecture Progression</h1>
+  <div class="sub">Track every lecture. Nothing else.</div>
+</header>
+
+<div class="controls">
+  <button onclick="expandAll()">Expand All</button>
+  <button onclick="collapseAll()">Collapse All</button>
+  <button onclick="exportProgress()">Export Progress</button>
+  <button onclick="document.getElementById('importFile').click()">Import Progress</button>
+  <input id="importFile" type="file" accept=".json,application/json" style="display:none" onchange="importProgress(event)">
+</div>
+
+<div id="app"></div>
+</div>
+
+<script>
+const data = {
+  "Physics": {
+    "Units & Measurements": 13,
+    "Mathematical Tools": 11,
+    "Motion In a Straight Line": 19,
+    "Motion In a Plane": 17,
+    "Laws Of Motion": 16
+  },
+  "Maths": {
+    "Set Theory": 8,
+    "Basic Mathematics": 21,
+    "Quadratic Equations": 14,
+    "Sequence & Series": 12,
+    "Trigonometric Functions": 13,
+    "Trigonometric Equations": 4
+  },
+  "Physical Chemistry": {
+    "Some Basic Concepts Of Chemistry": 21,
+    "Structure Of Atom": 18
+  },
+  "Inorganic Chemistry": {
+    "Periodic Table": 14,
+    "Chemical Bonding": 17
+  }
+};
+
+const key = "lecture_progression_v1";
+let saved = {};
+try {
+  const raw = localStorage.getItem(key);
+  saved = raw ? JSON.parse(raw) : {};
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) saved = {};
+} catch (e) {
+  saved = {};
+}
+
+function id(subject,chapter,n){return subject+"|"+chapter+"|"+n}
+function isDone(s,c,n){return !!saved[id(s,c,n)]}
+function toggle(s,c,n){
+  const openSubjects = [...document.querySelectorAll(".subject")].map(x => x.classList.contains("open"));
+  const openChapters = [...document.querySelectorAll(".chapter")].map(x => x.classList.contains("open"));
+  const k=id(s,c,n);
+  saved[k]=!saved[k];
+  if(!saved[k]) delete saved[k];
+  localStorage.setItem(key,JSON.stringify(saved));
+  render();
+  document.querySelectorAll(".subject").forEach((x,i)=>x.classList.toggle("open", !!openSubjects[i]));
+  document.querySelectorAll(".chapter").forEach((x,i)=>x.classList.toggle("open", !!openChapters[i]));
+}
+function chapterStats(s,c,total){
+  let done=0; for(let i=1;i<=total;i++) if(isDone(s,c,i)) done++;
+  return [done,total];
+}
+function subjectStats(s,chs){
+  let d=0,t=0;
+  for(const [c,n] of Object.entries(chs)){const x=chapterStats(s,c,n);d+=x[0];t+=x[1]}
+  return [d,t];
+}
+
+function exportProgress(){
+  const backup = {
+    app: "Lecture Progression Tracker",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    progress: saved
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `lecture-progress-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function importProgress(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const backup = JSON.parse(e.target.result);
+      const imported = backup && backup.progress ? backup.progress : backup;
+
+      if(!imported || typeof imported !== "object" || Array.isArray(imported)){
+        throw new Error("Invalid progress file");
+      }
+
+      saved = imported;
+      localStorage.setItem(key, JSON.stringify(saved));
+      render();
+      alert("Progress imported successfully!");
+    }catch(err){
+      alert("Could not import this file. Please select a valid progress backup.");
+    }
+    event.target.value = "";
+  };
+  reader.readAsText(file);
+}
+
+function render(){
+  const app=document.getElementById("app"); app.innerHTML="";
+  for(const [subject,chs] of Object.entries(data)){
+    const [sd,st]=subjectStats(subject,chs), pct=st?Math.round(sd/st*100):0;
+    const box=document.createElement("section"); box.className="subject";
+    box.innerHTML=`
+      <div class="subjectHead" onclick="this.parentElement.classList.toggle('open')">
+        <div class="row"><div class="name">${subject}</div><div class="row" style="gap:8px"><span class="percent">${sd}/${st} • ${pct}%</span><span class="chev">⌄</span></div></div>
+        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="chapters"></div>`;
+    const chapters=box.querySelector(".chapters");
+    for(const [chapter,total] of Object.entries(chs)){
+      const [d,t]=chapterStats(subject,chapter,total);
+      const ch=document.createElement("div"); ch.className="chapter";
+      ch.innerHTML=`<div class="chapterHead"><span class="chapterTitle">${chapter}</span><span class="chapterCount">${d}/${t}</span></div><div class="lectures"></div>`;
+      ch.querySelector(".chapterHead").onclick=()=>ch.classList.toggle("open");
+      const list=ch.querySelector(".lectures");
+      for(let i=1;i<=total;i++){
+        const done=isDone(subject,chapter,i);
+        const lec=document.createElement("div"); lec.className="lecture"+(done?" done":"");
+        lec.innerHTML=`<div class="check"></div><div class="title">Lecture ${i}</div>`;
+        lec.querySelector(".check").onclick=(e)=>{e.preventDefault();e.stopPropagation();toggle(subject,chapter,i)};
+        list.appendChild(lec);
+      }
+      chapters.appendChild(ch);
+    }
+    app.appendChild(box);
+  }
+}
+function expandAll(){document.querySelectorAll(".subject").forEach(x=>x.classList.add("open"));document.querySelectorAll(".chapter").forEach(x=>x.classList.add("open"))}
+function collapseAll(){document.querySelectorAll(".subject").forEach(x=>x.classList.remove("open"));document.querySelectorAll(".chapter").forEach(x=>x.classList.remove("open"))}
+render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
